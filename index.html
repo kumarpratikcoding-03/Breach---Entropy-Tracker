@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PassAudit-Zero | Zero-Trust Password & Breach Auditor</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #131a2a;
+      --border: #1f2a44;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+      --safe: #10b981;
+    }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px 16px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 680px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    h1 { margin: 0 0 6px; font-size: 1.6rem; color: var(--accent); }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 22px; }
+    .input-group { display: flex; gap: 10px; margin-bottom: 12px; }
+    input[type="password"], input[type="text"] {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #090d16;
+      color: #fff;
+      font-size: 1rem;
+    }
+    button {
+      padding: 12px 18px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #090d16;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.9; }
+    .toggle-btn { background: #1e293b; color: var(--text); font-weight: 500; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+    .metric {
+      background: #0d1322;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .metric-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-val { font-size: 1.25rem; font-weight: 700; margin-top: 4px; }
+    .banner {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-weight: 600;
+      display: none;
+    }
+    .safe { background: rgba(16,185,129,0.15); border: 1px solid var(--safe); color: #6ee7b7; }
+    .danger { background: rgba(239,68,68,0.15); border: 1px solid var(--danger); color: #fca5a5; }
+    .warn { background: rgba(245,158,11,0.15); border: 1px solid var(--warn); color: #fcd34d; }
+    .privacy-note { margin-top: 20px; font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🛡️ Password Auditor</h1>
+    <div class="subtitle">Zero-Trust Entropy, Pattern &amp; Anonymity Breach Auditor by PRATIK</div>
+
+    <div class="input-group">
+      <input type="password" id="pwdInput" placeholder="Enter password to audit..." onkeydown="if(event.key==='Enter') auditPassword()" />
+      <button type="button" class="toggle-btn" onclick="toggleVisibility()">Show</button>
+      <button type="button" onclick="auditPassword()">Audit</button>
+    </div>
+
+    <div id="breachBanner" class="banner"></div>
+    <div id="patternBanner" class="banner warn"></div>
+
+    <div class="grid" id="resultsGrid" style="display:none;">
+      <div class="metric">
+        <div class="metric-label">Shannon Entropy</div>
+        <div class="metric-val" id="entropyVal">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">SHA-1 Prefix Sent (k-Anonymity)</div>
+        <div class="metric-val" id="prefixVal">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Offline GPU Rig Crack Time</div>
+        <div class="metric-val" id="gpuTime">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Online Rate-Limited Crack Time</div>
+        <div class="metric-val" id="onlineTime">—</div>
+      </div>
+    </div>
+
+    <div class="privacy-note">
+      🔒 <strong>Privacy Guarantee:</strong> Your password is hashed locally in your browser using Web Crypto SHA-1. Only the first <strong>5 hex characters</strong> are sent <code></code>.
+    </div>
+  </div>
+
+  <script>
+    function toggleVisibility() {
+      const input = document.getElementById("pwdInput");
+      const btn = document.querySelector(".toggle-btn");
+      if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "Hide";
+      } else {
+        input.type = "password";
+        btn.textContent = "Show";
+      }
+    }
+
+    function calculateEntropy(pwd) {
+      let pool = 0;
+      if (/[a-z]/.test(pwd)) pool += 26;
+      if (/[A-Z]/.test(pwd)) pool += 26;
+      if (/[0-9]/.test(pwd)) pool += 10;
+      if (/[^a-zA-Z0-9]/.test(pwd)) pool += 32;
+      if (pool === 0) return 0;
+      return pwd.length * Math.log2(pool);
+    }
+
+    function detectPatterns(pwd) {
+      const lower = pwd.toLowerCase();
+      const walks = ["qwerty", "asdf", "zxcv", "1234", "password", "admin", "letmein", "welcome", "1111", "0000"];
+      const found = walks.filter(w => lower.includes(w));
+      return found;
+    }
+
+    function formatTime(seconds) {
+      if (seconds < 1) return "Instant (< 1 sec)";
+      if (seconds < 60) return `${Math.round(seconds)} seconds`;
+      if (seconds < 3600) return `${Math.round(seconds / 60)} minutes`;
+      if (seconds < 86400) return `${Math.round(seconds / 3600)} hours`;
+      if (seconds < 31536000) return `${Math.round(seconds / 86400)} days`;
+      const years = seconds / 31536000;
+      if (years > 1e9) return `${(years / 1e9).toFixed(1)} billion years`;
+      if (years > 1e6) return `${(years / 1e6).toFixed(1)} million years`;
+      return `${Math.round(years).toLocaleString()} years`;
+    }
+
+    async function sha1Hex(str) {
+      const buffer = new TextEncoder().encode(str);
+      const hashBuffer = await crypto.subtle.digest("SHA-1", buffer);
+      return Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+    }
+
+    async function auditPassword() {
+      const pwd = document.getElementById("pwdInput").value;
+      if (!pwd) return;
+
+      const breachBanner = document.getElementById("breachBanner");
+      const patternBanner = document.getElementById("patternBanner");
+      const resultsGrid = document.getElementById("resultsGrid");
+
+      resultsGrid.style.display = "grid";
+      breachBanner.style.display = "block";
+      breachBanner.className = "banner warn";
+      breachBanner.textContent = "⏳ Hashing locally and querying HIBP k-anonymity API...";
+
+      // 1. Entropy & Crack Time
+      const entropy = calculateEntropy(pwd);
+      const combinations = Math.pow(2, entropy);
+      const gpuGuessesPerSec = 1e10; // 10 billion/sec GPU rig
+      const onlineGuessesPerSec = 10; // Rate-limited online login
+
+      document.getElementById("entropyVal").textContent = `${entropy.toFixed(2)} bits`;
+      document.getElementById("gpuTime").textContent = formatTime(combinations / gpuGuessesPerSec);
+      document.getElementById("onlineTime").textContent = formatTime(combinations / onlineGuessesPerSec);
+
+      // 2. Pattern Check
+      const patterns = detectPatterns(pwd);
+      if (patterns.length > 0) {
+        patternBanner.style.display = "block";
+        patternBanner.textContent = `⚠️ Predictable pattern detected: "${patterns.join(", ")}" — attackers test these first.`;
+      } else {
+        patternBanner.style.display = "none";
+      }
+
+      // 3. SHA-1 + k-Anonymity Breach Check
+      try {
+        const fullHash = await sha1Hex(pwd);
+        const prefix = fullHash.slice(0, 5);
+        const suffix = fullHash.slice(5);
+        document.getElementById("prefixVal").textContent = `${prefix}•••••••••••••••••••••••••••••••••••`;
+
+        const res = await fetch(`https://pwnedpasswords.com{prefix}`, {
+          headers: { "Add-Padding": "true" }
+        });
+        if (!res.ok) throw new Error("API request failed");
+
+        const text = await res.text();
+        let count = 0;
+        for (const line of text.split("\n")) {
+          const [returnedSuffix, breachCount] = line.trim().split(":");
+          if (returnedSuffix === suffix) {
+            count = parseInt(breachCount, 10);
+            break;
+          }
+        }
+
+        if (count > 0) {
+          breachBanner.className = "banner danger";
+          breachBanner.textContent = `🚨 COMPROMISED: Found in ${count.toLocaleString()} data breaches! Do not use this password.`;
+        } else {
+          breachBanner.className = "banner safe";
+          breachBanner.textContent = `✅ NOT FOUND in known data breaches (0 matches across HIBP database).`;
+        }
+      } catch (err) {
+        breachBanner.className = "banner danger";
+        breachBanner.textContent = `❌ Error checking HIBP API: ${err.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
